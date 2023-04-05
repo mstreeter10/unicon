@@ -380,23 +380,40 @@ class Workspace(
 # -------------------------------------------------------------------------------------------------
 
     method setVariables()
+       identifiers := &letters ++ &digits ++ '_' ++ '-'
        variables := table()
        f := open(temp_file)
        while _line := read(f) do {
           if ReMatch("^[\ \t]*[a-zA-Z0-9_]+[\ \t]*:=", _line) then {
              _line ? {
                 tab(many(' \t'))
-                variableName := tab(many(&digits ++ &letters ++ '-' ++ '_'))
+                variableName := tab(many(identifiers))
                 tab(many(' \t'))
                 move(2)
                 tab(many(' \t'))
                 _content := tab(*_line + 1)
                 if not member(objects, variableName) then {
                    variables[variableName] := _content
-                   }
                 }
              }
           }
+          #if ReMatch("^[\ \t]*local", _line) then {
+          #   _line ? {
+          #      tab(many(' \t'))
+          #      move(5)
+          #      tab(many(' \t'))
+          #      until &pos >= *_line do {
+          #         temp_pos := &pos
+          #         if ReMatch("^[\ \t]*[a-zA-Z0-9_]+[\ \t]*:=", tab(upto(,))) then {
+          #            &pos := temp_pos
+          #            variableName := tab(many(identifiers))
+          #            variables[variableName] := "local declare"
+          #            tab(upto(,))
+          #         }
+          #      }
+          #   }
+          #}
+       }
     end
 
     method getVariables()
