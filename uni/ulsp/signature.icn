@@ -234,14 +234,17 @@ class SignatureHandler(
 
       # Create a valid signature #
       signature := createSignature(function, functionTable)
+      signature := replace(signature, "\"", "\\\"")
+      signature := replace(signature, "\\n", "\\\\n") 
+
 
       # Format parameters #
       every param_table := !functionTable["params"] do 
          put(param_list, table("label", param_table["name"]))
 
       # Update results #
-      put(results_table["signatures"], table("label", signature, "parameters", param_list, "activeParameter", 0))
-      return table("label", signature, "parameters", param_list, "activeParameter", 0)
+      put(results_table["signatures"], table("label", signature, "parameters", param_list, "activeParameter", 0, "documentation", table("kind", "markdown", "value", functionTable["comments"]))
+      return table("label", signature, "parameters", param_list, "activeParameter", 0, "documentation", table("kind", "markdown", "value", functionTable["comments"]))
    end
 
    # Create a valid signature #
@@ -250,6 +253,7 @@ class SignatureHandler(
 
       counter := 0
       signature := function || "("
+      
 
       every param_table := !functionTable["params"] do {
          signature ||:= param_table["name"]
@@ -260,6 +264,9 @@ class SignatureHandler(
       }
 
       signature ||:= ")"
+ 
+      write(ximage(functionTable["params"]))
+      write(functionTable["comments"])
 
       return signature
    end
