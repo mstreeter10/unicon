@@ -41,6 +41,7 @@ class Workspace(
    internal_procedures,
    internal_classes,
    linked_procedures,
+   package_procedures,
    linked_classes,
    imported_procedures,
    imported_classes,
@@ -55,6 +56,7 @@ class Workspace(
       setInternalProcedures()
       setLinkedProcedures()
       setImportedProcedures()
+      setPackageProcedures()
       setInternalClasses()
       setLinkedClasses()
       setImportedClasses()
@@ -214,6 +216,23 @@ class Workspace(
 
     method getImportedProcedures()
        return imported_procedures
+    end
+
+# -------------------------------------------------------------------------------------------------
+# ---------------- Package Procedures (get, set, update) -----------------------------------------
+# -------------------------------------------------------------------------------------------------
+
+    method setPackageProcedures()
+       package_procedures := table()
+       every file_in_pack := !lsp_database.package_db[_package]["files"] do {
+          every _key := key(file_in_pack["procedures"]) do {
+             package_procedures[_key] := file_in_pack["procedures"][_key]
+          }
+       }
+    end
+
+    method getPackageProcedures()
+       return package_procedures
     end
 
 # -------------------------------------------------------------------------------------------------

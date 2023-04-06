@@ -98,6 +98,7 @@ class SignatureHandler(
             linked_procedures := workspace.getLinkedProcedures()
             imported_procedures := workspace.getImportedProcedures()
             internal_procedures := workspace.getInternalProcedures()
+            package_procedures := workspace.getPackageProcedures()
 
             # Check if function is a built in function #
             if member(built_in_functions, functionName) then {
@@ -124,6 +125,11 @@ class SignatureHandler(
             # Check if function is an internal procedure #
             if member(internal_procedures, functionName) then {
                put(sig_tables, updateResults(functionName, internal_procedures[functionName], results_table))
+            }
+
+            # Check if function is a package procedure #
+            if member(package_procedures, functionName) then {
+               put(sig_tables, updateResults(functionName, package_procedures[functionName], results_table))
             }
          }
       }
