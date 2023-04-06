@@ -481,6 +481,14 @@ class Workspace(
              put(results_table["items"], table("label", class_attribute["name"], "kind", 5))                
              }
           }
+       if member(package_classes, className) then {
+          every class_method := key(package_classes[className]["methods"]) do {
+             put(results_table["items"], table("label", class_method, "kind", 2))
+             }
+          every class_attribute := package_classes[className]["attributes"][1 to *package_classes[className]["attributes"]] do {
+             put(results_table["items"], table("label", class_attribute["name"], "kind", 5))                
+             }
+          }
     end
 
 # -------------------------------------------------------------------------------------------------
