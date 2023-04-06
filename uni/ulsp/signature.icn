@@ -259,7 +259,7 @@ class SignatureHandler(
          signature_table := table("label", signature, "parameters", param_list, "activeParameter", 0)
       
       # Update results #
-      put(results_table["signatures"], signature_table)
+      if \results_table then put(results_table["signatures"], signature_table)
       return signature_table
    end
 

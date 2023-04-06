@@ -14,7 +14,7 @@ class HoverHandler(
     end
 
     method run()
-    local line, character, desired_line, hover_item, signatureHandler, results_table
+    local line, character, desired_line, hover_item, signatureHandler, sig_table, results_table
 
         results_table := table()
 
@@ -23,9 +23,15 @@ class HoverHandler(
         desired_line := getDesiredLine(line, workspace.temp_file)
 
         signatureHandler := SignatureHandler()
+        signatureHandler.setVariables(workspace)
 
         hover_item := \getHoverItem(desired_line, character) | return tojson(results_table)
         _context := \getContext(desired_line, character) | return tojson(results_table)
+
+        if _context == "function" then {
+            sig_table := signatureHandler.handleNewSignature(desired_line, character)
+            hover_item := sig_table[1]["label"]
+        }
 
         results_table["contents"] := "(" || _context || ") " || hover_item
         return tojson(results_table)
