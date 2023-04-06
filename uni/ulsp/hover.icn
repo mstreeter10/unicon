@@ -113,8 +113,6 @@ class HoverHandler(
 
         line_num := params["position"]["line"]
 
-        
-
         if member(workspace.objects, getHoverItem(line, character)) then return "object"
         if member(workspace.variables, getHoverItem(line, character)) then return "variable"
     end

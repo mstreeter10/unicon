@@ -229,41 +229,7 @@ class Workspace(
           every _method := _class.getMethods().get() do {
              internal_classes[_class.getName()]["methods"][_method.getName()] := table()
 
-
-             fullComment:= ""
-                   tabCharacter := "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
-                   every _comment := _method.getComments().get() do {
-                     paramCounter := 0
-                     every _line := _comment.get() do {   
-                           _line := replace(_line, "\\n", "\\\\n")              
-                           if ((find("<[", _line)) | (find("]>", _line))) then {  
-                              if (find("param", _line)) then {
-                                 if(paramCounter == 0) then 
-                                    _line := replace(_line, "param", "\n Parameters:  \n " || tabCharacter)
-                                 else 
-                                    _line := replace(_line, "param", "\n " || tabCharacter)                                
-                              } 
-                              else if (find("returns", _line)) then 
-                                 _line := replace(_line, "returns", "\n Returns:  \n " || tabCharacter)             
-                              else if (find("fails", _line)) then 
-                                 _line := replace(_line, "fails", "\n Fails:  \n " || tabCharacter)
-                              else if (find("generates", _line)) then
-                                 _line := replace(_line, "generates", "\n Generates:  \n " || tabCharacter)
-                              else
-                                 _line := _line
-                              paramCounter +:= 1  
-                           }
-                           _line := replacem(_line, "<p>", "", "</p>", "")
-                           _line := replacem(_line, "<i>", "_", "</i>", "_")
-                           _line := replacem(_line, "<b>", "**", "</b>", "**")
-                           _line := replacem(_line, "<tt>", "`", "</tt>", "`")
-                           _line := replace(_line, "\"", "\\\"")
-                           _line := replace(_line, "<[", "")
-                           _line := replace(_line, "]>", "")
-                           fullComment ||:= _line
-                     }
-                  }
-            internal_classes[_class.getName()]["methods"][_method.getName()]["comments"] := fullComment
+             internal_classes[_class.getName()]["methods"][_method.getName()]["comments"] := makeComment(_method)
 
              internal_classes[_class.getName()]["methods"][_method.getName()]["params"] := []     
              every _param := _method.getParams().get() do {
