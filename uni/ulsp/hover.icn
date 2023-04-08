@@ -170,6 +170,9 @@ class HoverHandler(
 
         line_num := params["position"]["line"]
 
+        # If item is a member of global variables then return global
+        if member(workspace.global_variables, getHoverItem(line, character)) then return "global"
+
         # If item is an associated variable or object then return variable or object respectively
         if member(workspace.objects, getHoverItem(line, character)) then return "object"
         if member(workspace.variables, getHoverItem(line, character)) then return "variable"

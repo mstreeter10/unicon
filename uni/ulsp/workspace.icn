@@ -38,6 +38,7 @@ class Workspace(
    _package,
    objects,
    variables,
+   global_variables,
    internal_procedures,
    internal_classes,
    linked_procedures,
@@ -367,6 +368,7 @@ class Workspace(
     method setVariables()
        identifiers := &letters ++ &digits ++ '_' ++ '-'
        variables := table()
+       global_variables := table()
        f := open(temp_file)
        while _line := read(f) do {
           if ReMatch("^[\ \t]*[a-zA-Z0-9_]+[\ \t]*:=", _line) then {
@@ -398,11 +400,24 @@ class Workspace(
           #      }
           #   }
           #}
+          if ReMatch("^[\ \t]*global[\ \t]+[a-zA-Z0-9_]+", _line) then {
+             _line ? {
+                tab(many(' \t'))
+                move(6)
+                tab(many(' \t'))
+                globalName := tab(many(identifiers))
+                global_variables[globalName] := ""
+             }
+          }
        }
     end
 
     method getVariables()
        return variables
+    end
+
+    method getGlobalVariables()
+       return global_variables
     end
 
 # -------------------------------------------------------------------------------------------------
