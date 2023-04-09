@@ -127,7 +127,6 @@ class Server(
       local results, res
       results := "{\"capabilities\":{\"completionProvider\":{\"resolveProvider\":true},\"textDocumentSync\":1,\"signatureHelpProvider\":{\"contextSupport\":true,\"triggerCharacters\":\"(\"},\"hoverProvider\":true}}"
 
-
       res := build_response(request_id, results)
       write(res)
       writes(sock, res)

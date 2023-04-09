@@ -38,9 +38,11 @@ class Workspace(
    _package,
    objects,
    variables,
+   global_variables,
    internal_procedures,
    internal_classes,
    linked_procedures,
+   package_procedures,
    linked_classes,
    imported_procedures,
    imported_classes,
@@ -55,6 +57,7 @@ class Workspace(
       setInternalProcedures()
       setLinkedProcedures()
       setImportedProcedures()
+      setPackageProcedures()
       setInternalClasses()
       setLinkedClasses()
       setImportedClasses()
@@ -217,6 +220,23 @@ class Workspace(
     end
 
 # -------------------------------------------------------------------------------------------------
+# ---------------- Package Procedures (get, set, update) -----------------------------------------
+# -------------------------------------------------------------------------------------------------
+
+    method setPackageProcedures()
+       package_procedures := table()
+       every file_in_pack := !lsp_database.package_db[_package]["files"] do {
+          every _key := key(file_in_pack["procedures"]) do {
+             package_procedures[_key] := file_in_pack["procedures"][_key]
+          }
+       }
+    end
+
+    method getPackageProcedures()
+       return package_procedures
+    end
+
+# -------------------------------------------------------------------------------------------------
 # ---------------- Internal Classes (get, set, update) --------------------------------------------
 # -------------------------------------------------------------------------------------------------
 
@@ -346,27 +366,58 @@ class Workspace(
 # -------------------------------------------------------------------------------------------------
 
     method setVariables()
+       identifiers := &letters ++ &digits ++ '_' ++ '-'
        variables := table()
+       global_variables := table()
        f := open(temp_file)
        while _line := read(f) do {
           if ReMatch("^[\ \t]*[a-zA-Z0-9_]+[\ \t]*:=", _line) then {
              _line ? {
                 tab(many(' \t'))
-                variableName := tab(many(&digits ++ &letters ++ '-' ++ '_'))
+                variableName := tab(many(identifiers))
                 tab(many(' \t'))
                 move(2)
                 tab(many(' \t'))
                 _content := tab(*_line + 1)
                 if not member(objects, variableName) then {
                    variables[variableName] := _content
-                   }
                 }
              }
           }
+          #if ReMatch("^[\ \t]*local", _line) then {
+          #   _line ? {
+          #      tab(many(' \t'))
+          #      move(5)
+          #      tab(many(' \t'))
+          #      until &pos >= *_line do {
+          #         temp_pos := &pos
+          #         if ReMatch("^[\ \t]*[a-zA-Z0-9_]+[\ \t]*:=", tab(upto(,))) then {
+          #            &pos := temp_pos
+          #            variableName := tab(many(identifiers))
+          #            variables[variableName] := "local declare"
+          #            tab(upto(,))
+          #         }
+          #      }
+          #   }
+          #}
+          if ReMatch("^[\ \t]*global[\ \t]+[a-zA-Z0-9_]+", _line) then {
+             _line ? {
+                tab(many(' \t'))
+                move(6)
+                tab(many(' \t'))
+                globalName := tab(many(identifiers))
+                global_variables[globalName] := ""
+             }
+          }
+       }
     end
 
     method getVariables()
        return variables
+    end
+
+    method getGlobalVariables()
+       return global_variables
     end
 
 # -------------------------------------------------------------------------------------------------
@@ -427,6 +478,14 @@ class Workspace(
              put(results_table["items"], table("label", class_method, "kind", 2))
              }
           every class_attribute := internal_classes[className]["attributes"][1 to *internal_classes[className]["attributes"]] do {
+             put(results_table["items"], table("label", class_attribute["name"], "kind", 5))                
+             }
+          }
+       if member(package_classes, className) then {
+          every class_method := key(package_classes[className]["methods"]) do {
+             put(results_table["items"], table("label", class_method, "kind", 2))
+             }
+          every class_attribute := package_classes[className]["attributes"][1 to *package_classes[className]["attributes"]] do {
              put(results_table["items"], table("label", class_attribute["name"], "kind", 5))                
              }
           }

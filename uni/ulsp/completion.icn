@@ -153,6 +153,9 @@ class CompletionHandler(
       every _importedProcedure := key(workspace.getImportedProcedures()) do {
          put(results_table["items"], table("label", _importedProcedure, "kind", 3))
          }
+      every _packageProcedure := key(workspace.getPackageProcedures()) do {
+         put(results_table["items"], table("label", _packageProcedure, "kind", 3))
+         }
    end
 
    method addWordspaceClasses(results_table, workspace)
