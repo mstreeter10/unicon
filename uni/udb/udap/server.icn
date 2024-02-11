@@ -77,13 +77,9 @@ class Server(port, sock, communicator, shellProcessId, clientDetails, currentReq
 
       while /request_body | request_body == "" do {
 
-         # Even while waiting for request, listen to udb
-         if \communicator.udbSock then {
-            select([sock, communicator.udbSock])
-            udb_listen()
-         }
-         else select(sock)
-         
+         # While waiting for request, listen to udb
+         while *select(sock, 0) = 0 do udb_listen()
+
          msg := ready(sock)
 
          # Handling socket reading anomoly: header alone or header + request_body
@@ -189,23 +185,23 @@ class Server(port, sock, communicator, shellProcessId, clientDetails, currentReq
 
    # Handles all the things required from a client "initialize" request.
    method initialize(request_seq, request_command, request_arguments)
-      local capabilitiesTable, res, udbPort, startRes, event, req
+      local capabilitiesTable, res, tpPort, startRes, event, req
 
       clientDetails := \request_arguments
 
       port ? {
          move()
-         udbPort := tab(0)
+         tpPort := numeric(tab(0)) + 20
       }
-      udbPort := integer(udbPort)
-      udbPort +:= 10
 
-      startRes := communicator.start_debugger(udbPort)
-      if startRes ~== "success" then {
-         res := build_response(request_seq, "__false__", request_command, &null, startRes)
-         writes(sock, res)
-         disconnect(startRes)
-      }
+      startRes := communicator.start_debugger(tpPort)
+
+      # Implement thread varient
+      #if startRes ~== "success" then {
+      #   res := build_response(request_seq, "__false__", request_command, &null, startRes)
+      #   writes(sock, res)
+      #   disconnect(startRes)
+      #}
 
       capabilitiesTable := [
          "supportsConfigurationDoneRequest": "__true__"
@@ -250,7 +246,7 @@ class Server(port, sock, communicator, shellProcessId, clientDetails, currentReq
 
       communicator.dapcomSock := communicator.open_sock(dapPort)
       if /communicator.dapcomSock then {
-         res := build_response(request_seq, "__false__", request_command, &null, "udap failed to open dapcomSock: " || port + 10)
+         res := build_response(request_seq, "__false__", request_command, &null, "udap failed to open dapcomSock: " || dapPort)
          writes(sock, res)
          return
       }
@@ -384,8 +380,8 @@ class Server(port, sock, communicator, shellProcessId, clientDetails, currentReq
       local outputTable, udbRes
 
       udbRes := communicator.udb_output()
-      if \udbRes ~== "" then {
-         every outputTable := jtou(udbRes) do {
+      if \udbRes then {
+         every outputTable := !udbRes do {
             process_udb_output_table(outputTable)
          }
       }

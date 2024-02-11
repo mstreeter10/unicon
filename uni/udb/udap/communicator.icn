@@ -3,30 +3,25 @@ package udap
 link findre
 import json
 
-class Communicator(udb, udbSock, tpSock, dapcomSock, filePath, tpArgs)
+class Communicator(udb, tpSock, dapcomSock, filePath, tpArgs)
 
     # Attempt to start udb if not already active and connect to it.
     # Returns "success" if successful and an appropriate error string if otherwise.
-    method start_debugger(port)
-        local udbPath, dir, result
+    method start_debugger(tpPort)
+        local udbConsole
 
-        udbPath := find_debugger()
-        if /udbPath then return "udap could not find udb"
+        udbConsole := Console()
+        udb := thread udbConsole.startConsole(["-adapter"], tpPort)
 
-        udb := system(udbPath || " -adapter " || port, &null, &null, &null, "nowait")
-            
-        udbSock := open_sock(port)
-        if /udbSock then return "udap failed to open udbSock: " || port
-
-        tpSock := open_sock(port + 10)
-        if /tpSock then return "udap failed to open tpSock: " || port + 10
+        tpSock := open_sock(tpPort)
+        if /tpSock then return "udap failed to open tpSock: " || tpPort
 
         return "success"
     end
 
     # Send a termination signal to udb.
     method end_debugger()
-        kill(\udb, 9)
+        # Implement thread varient
     end
 
     # Returns udb's absolute path.
@@ -118,6 +113,34 @@ class Communicator(udb, udbSock, tpSock, dapcomSock, filePath, tpArgs)
         return variables
     end
 
+    # Attempts to set breakpoints given DAP setBreakpoints request as 'arguments'.
+    # Gives a "verified" key to each breakpoint table and sets it based on if the breakpoint was successfully set or not.
+    # A table of with key "type" set to "crash" is returned if udb experiences an error.
+    method set_breakpoints(arguments)
+        local breakpoints, bp, line, cond, udbResTable, udbResTableList, i, __1
+
+        udb_input("clear break", 1)
+
+        breakpoints := arguments["breakpoints"]
+
+        every bp := !breakpoints do {
+            line := bp["line"]
+            cond := bp["condition"]
+
+            udbResTableList := udb_input("b " || arguments["source"]["name"] || ":" || line, 1) | []
+            
+            if *udbResTableList ~= 0 then {
+                every udbResTable := !udbResTableList do {
+                    if member(udbResTable, "type") then 
+                        if udbResTable["type"] == "crash" then return udbResTable
+                    if member(udbResTable, "success") then 
+                        bp["verified"] := udbResTable["success"]
+                }
+            }
+            else bp["verified"] := "__false__"
+        }
+    end
+
     # Generator that suspends all udb commands needed for loading debuggee.
     method load_cmds()
         local dir, procs
@@ -145,7 +168,7 @@ class Communicator(udb, udbSock, tpSock, dapcomSock, filePath, tpArgs)
     # Attempts to open a specified port. Returns communication source if successful.
     method open_sock(port)
         local sock
-        if /port then return "udb communication port not declared"
+        if /port then return "Communication port not declared"
 
         every !5 do
             if sock := open(":" || port, "na") then
@@ -158,8 +181,7 @@ class Communicator(udb, udbSock, tpSock, dapcomSock, filePath, tpArgs)
 
     # Disconnects from udb.
     method disconnect_udbsock()
-        close(\udbSock)
-        udbSock := &null
+        # Implement thread varient
     end
 
     # Attempts to read udb socket output.
@@ -167,37 +189,15 @@ class Communicator(udb, udbSock, tpSock, dapcomSock, filePath, tpArgs)
     # If 'wait' is not null, process will wait a maximum of 5 seconds for udb to respond.
     # 'wait' should be not null if udap needs a response from udb.
     method udb_output(wait)
-        local msg, i, seg, failsafe
-        \udbSock | fail
-        failsafe := 0
-        msg := ""
-        
-        if /wait then {
-            while *select(udbSock, 200) > 0 do {
-                if failsafe > 50 then fail
-                seg := ready(udbSock)
-                if /seg then fail
-                msg ||:= seg
-                failsafe +:= 1
-            }
-        }
-        else {
-            if *select(udbSock, 5000) > 0 then {
-                seg := ready(udbSock)
-                if /seg then fail
-                msg ||:= seg
-            }
-            while *select(udbSock, 200) > 0 do {
-                if failsafe > 50 then fail
-                seg := ready(udbSock)
-                if /seg then fail
-                msg ||:= seg
-                failsafe +:= 1
-            }
-        }
-
-        write("udb -> udap: " || msg)
-        return msg
+        local res := []
+        \udb | fail
+        if \wait then
+            put(res, 5000 <<@ udb)
+        while *udb > 0 do
+            put(res, <@ udb)
+        *res > 0 | fail
+        write("udap recived -> \n" || ximage(res))
+        return res
     end
 
     # Sends udb a command as 'exp' and returns what was output.
@@ -206,66 +206,17 @@ class Communicator(udb, udbSock, tpSock, dapcomSock, filePath, tpArgs)
     # 'wait' should be not null if udap needs a response from udb.
     # Will always return a crash table if a crash has happened unless if a call with 'resetError' not null has been executed.
     method udb_input(exp, wait, resetError)
-        local udbRes, resultTable
-        static errorCalled
-        initial errorCalled := &null
-
-        if \resetError then {
-            errorCalled := &null
-            fail
-        }
-
-        if \errorCalled then return errorCalled
-
-        write("udap -> udb: " || exp)
-        write(udbSock, exp)
-        udbRes := udb_output(wait)
-
-        if /udbRes then {
-            resultTable := ["type": "crash"; "errornumber": 1040; "errortext": "socket error"]
-            errorCalled := resultTable
-            return resultTable
-        }
-
-        if udbRes ~== "" then {
-            every resultTable := jtou(udbRes) do {
-                if member(resultTable, "type") then 
-                    if resultTable["type"] == "crash" then
-                        errorCalled := resultTable
-                suspend resultTable
-            }
-        }
+        local res
+        \udb | fail
+        write("udap writing -> " || exp)
+        exp @>>
+        res := udb_output(wait)
+        \res | fail
+        return res
     end
 
     # Returns the communcation source used to communicate with udb.
     method get_communication_source()
-        if \udbSock then return udbSock
-    end
-
-    # Attempts to set breakpoints given DAP setBreakpoints request as 'arguments'.
-    # Gives a "verified" key to each breakpoint table and sets it based on if the breakpoint was successfully set or not.
-    # A table of with key "type" set to "crash" is returned if udb experiences an error.
-    method set_breakpoints(arguments)
-        local breakpoints, bp, line, cond, udbResTable, udbResTableList, i, __1
-
-        udb_input("clear break", 1)
-
-        breakpoints := arguments["breakpoints"]
-
-        every bp := !breakpoints do {
-            line := bp["line"]
-            cond := bp["condition"]
-
-            udbResTableList := [: udb_input("b " || arguments["source"]["name"] || ":" || line, 1) :] | []
-            
-            if *udbResTableList ~= 0 then {
-                every udbResTable := !udbResTableList do {
-                    if member(udbResTable, "type") then 
-                        if udbResTable["type"] == "crash" then return udbResTable
-                    bp["verified"] := udbResTable["success"]
-                }
-            }
-            else bp["verified"] := "__false__"
-        }
+        #implement thread varient
     end
 end
